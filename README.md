@@ -1,5 +1,7 @@
 # WebScreenShare · 极简网页版桌面共享
 
+[![build](https://github.com/ztommyc/web-screen-share/actions/workflows/build.yml/badge.svg)](https://github.com/ztommyc/web-screen-share/actions/workflows/build.yml)
+
 被控机跑一个单文件程序，控制机用浏览器打开就能实时看桌面 —— **不用装 VNC、不用装任何客户端、不写注册表**。
 附带**双向文本消息**（保持换行/缩进原样），适合远程排障、内网机画面查看、被管控环境下的轻量投屏。
 
@@ -14,6 +16,11 @@
 - **可调参数**：帧率、JPEG 质量、缩放、指定显示器
 
 ## 快速开始
+
+### 方式零：直接下现成的 exe（Windows）
+
+到 [Releases](https://github.com/ztommyc/web-screen-share/releases) 下载 `screen-share.exe`，拷到被控机双击即可，无需 Python。
+每次打 `v*` tag，GitHub Actions 会自动构建并挂到 Release 上。
 
 ### 方式一：直接跑源码
 

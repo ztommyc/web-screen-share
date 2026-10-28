@@ -1,0 +1,67 @@
+name: build
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-windows:
+    name: Windows exe
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install deps
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt pyinstaller
+
+      - name: Build onefile exe
+        run: python -m PyInstaller --onefile --name screen-share --noconfirm screen-share.py
+
+      - name: Smoke test (health + send/poll)
+        shell: pwsh
+        run: |
+          Start-Process -FilePath "dist\screen-share.exe" -ArgumentList "--no-ui --port 8099" -WindowStyle Hidden
+          $ok = $false
+          for ($i = 0; $i -lt 30; $i++) {
+            Start-Sleep -Seconds 2
+            try {
+              $r = Invoke-RestMethod -Uri http://127.0.0.1:8099/health -TimeoutSec 3
+              if ($r.ok) { $ok = $true; break }
+            } catch { }
+          }
+          if (-not $ok) { throw "exe 未能启动或 /health 不可用" }
+          $body = '{"text":"ci test\n  indent"}'
+          Invoke-RestMethod -Uri http://127.0.0.1:8099/send -Method Post `
+            -ContentType "application/json; charset=utf-8" `
+            -Body ([System.Text.Encoding]::UTF8.GetBytes($body)) | Out-Null
+          $p = Invoke-RestMethod -Uri "http://127.0.0.1:8099/poll?after=0" -TimeoutSec 5
+          if ($p.messages[0].text -ne "ci test`n  indent") { throw "消息回环失败" }
+          Write-Host "smoke test passed"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: screen-share-windows
+          path: dist/screen-share.exe
+          if-no-files-found: error
+
+      - name: Attach to Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/screen-share.exe
+          generate_release_notes: true
