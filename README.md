@@ -2,6 +2,8 @@
 
 [![build](https://github.com/ztommyc/web-screen-share/actions/workflows/build.yml/badge.svg)](https://github.com/ztommyc/web-screen-share/actions/workflows/build.yml)
 
+GitHub：https://github.com/ztommyc/web-screen-share ｜ Gitee 镜像：https://gitee.com/ztommy/web-screen-share
+
 被控机跑一个单文件程序，控制机用浏览器打开就能实时看桌面 —— **不用装 VNC、不用装任何客户端、不写注册表**。
 附带**双向文本消息**（保持换行/缩进原样），适合远程排障、内网机画面查看、被管控环境下的轻量投屏。
 
