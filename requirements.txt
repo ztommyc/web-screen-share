@@ -1,0 +1,5 @@
+mss>=9.0.1
+pillow>=10.0.0
+# 可选：DXGI 采集后端（抓到黑屏时改用 --backend dxcam）
+# dxcam>=0.0.5
+# numpy>=1.24
