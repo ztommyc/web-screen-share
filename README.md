@@ -19,13 +19,9 @@ GitHub：https://github.com/ztommyc/web-screen-share ｜ Gitee 镜像：https://
 
 ## 界面截图
 
-> 截图中的"桌面画面"为程序合成的演示桌面，非真实屏幕。
+真实使用场景：浏览器实时画面（被控机桌面 + 置顶消息小窗）+ 右下角主控机消息面板，换行/缩进原样保留。
 
-![浏览器端：实时画面 + 双向消息面板](docs/screenshots/browser.png)
-
-![消息面板最小化，header 显示未读角标](docs/screenshots/browser-min.png)
-
-![被控端置顶消息小窗：换行/缩进原样保留](docs/screenshots/host-overlay.png)
+![真实场景：浏览器实时画面 + 双向消息](docs/screenshots/real-scene.png)
 
 ## 快速开始
 
