@@ -227,7 +227,13 @@ HTML = """<!doctype html>
     if (chat.classList.contains('min')) setMin(false);
   });
 
+  const seenIds = new Set();   // 已渲染的消息 id，防止本地插入 + 轮询回显造成重复
+
   function addMsg(m){
+    if (m.id != null){
+      if (seenIds.has(m.id)) return;   // 已经显示过，跳过
+      seenIds.add(m.id);
+    }
     const div = document.createElement('div');
     div.className = 'm ' + (m.sender === '主控机' ? 'me' : 'remote');
     const who = document.createElement('div');
@@ -253,12 +259,15 @@ HTML = """<!doctype html>
     if (!text) return;
     msgBox.value = '';
     try{
-      await fetch('/send?' + tokenQS(), {
+      const r = await fetch('/send?' + tokenQS(), {
         method:'POST',
         headers:{'Content-Type':'application/json'},
         body: JSON.stringify({text:text})
       });
-      addMsg({sender:'主控机', text:text, ts:Date.now()/1000});
+      const j = await r.json();
+      // 用服务端返回的消息（带 id）回显，轮询再拿到同一条时按 id 去重
+      if (j && j.message) addMsg(j.message);
+      else addMsg({sender:'主控机', text:text, ts:Date.now()/1000});
     }catch(e){ status.textContent = '发送失败: ' + e; }
   }
   document.getElementById('btnSend').onclick = sendMessage;
@@ -459,10 +468,11 @@ class Handler(BaseHTTPRequestHandler):
             self.send_error(400, "bad request body")
             return
         text = text[:MAX_MSG_LEN]
+        msg = None
         if text:
-            self.server.bus.push("主控机", text)
+            msg = self.server.bus.push("主控机", text)
             print("[msg] 主控机 -> %d 字符" % len(text), flush=True)
-        self._json({"ok": True})
+        self._json({"ok": True, "message": msg})
 
     def _page(self, q):
         base = "/stream?" + urlparse(self.path).query
