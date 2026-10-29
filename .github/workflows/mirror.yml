@@ -1,0 +1,22 @@
+name: mirror
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  workflow_dispatch:
+
+jobs:
+  gitee:
+    name: Sync to Gitee
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout (full history)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Push main + tags to Gitee
+        run: |
+          git push --force "https://ztommy:${{ secrets.GITEE_TOKEN }}@gitee.com/ztommy/web-screen-share.git" main
+          git push --force "https://ztommy:${{ secrets.GITEE_TOKEN }}@gitee.com/ztommy/web-screen-share.git" --tags

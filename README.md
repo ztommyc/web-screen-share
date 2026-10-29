@@ -17,6 +17,16 @@ GitHub：https://github.com/ztommyc/web-screen-share ｜ Gitee 镜像：https://
 - **访问口令**：`--token`，URL 带 `?token=xxx`
 - **可调参数**：帧率、JPEG 质量、缩放、指定显示器
 
+## 界面截图
+
+> 截图中的"桌面画面"为程序合成的演示桌面，非真实屏幕。
+
+![浏览器端：实时画面 + 双向消息面板](docs/screenshots/browser.png)
+
+![消息面板最小化，header 显示未读角标](docs/screenshots/browser-min.png)
+
+![被控端置顶消息小窗：换行/缩进原样保留](docs/screenshots/host-overlay.png)
+
 ## 快速开始
 
 ### 方式零：直接下现成的 exe（Windows）

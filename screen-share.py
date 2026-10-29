@@ -577,8 +577,8 @@ def run_overlay(bus, port):
     root = tk.Tk()
     root.title("桌面共享 · 消息 (端口 %d)" % port)
     root.attributes("-topmost", True)
-    root.geometry("+40+40")
-    root.minsize(360, 300)
+    root.geometry("460x430+40+40")
+    root.minsize(400, 340)
 
     MONO = ("Consolas", 10)
 
