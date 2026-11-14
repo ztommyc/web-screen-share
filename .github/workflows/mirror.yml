@@ -14,6 +14,7 @@ jobs:
       - name: Checkout (full history)
         uses: actions/checkout@v4
         with:
+          ref: main          # tag 触发时默认是游离 HEAD，显式取 main 分支
           fetch-depth: 0
 
       - name: Push main + tags to Gitee
