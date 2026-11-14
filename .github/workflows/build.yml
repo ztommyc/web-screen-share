@@ -65,3 +65,29 @@ jobs:
         with:
           files: dist/screen-share.exe
           generate_release_notes: true
+
+      # ---- 兜底：main 上的构建发到 nightly 预发布，随时可下最新包 ----
+      - name: Move nightly tag
+        if: github.ref == 'refs/heads/main'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -f nightly
+          git push -f origin nightly
+
+      - name: Publish nightly prerelease
+        if: github.ref == 'refs/heads/main'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: nightly
+          name: nightly · 最新 main 构建（非稳定版）
+          body: |
+            自动构建自 `main` 分支最新提交，仅供尝鲜，稳定版请看带版本号的 Release。
+
+            - commit: `${{ github.sha }}`
+            - 触发: ${{ github.event_name }} @ ${{ github.event.head_commit.timestamp }}
+            - 产物: `screen-share.exe`（Windows 单文件，绿色免安装）
+          prerelease: true
+          make_latest: "false"
+          overwrite_files: true
+          files: dist/screen-share.exe
