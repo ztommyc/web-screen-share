@@ -12,10 +12,12 @@ GitHub：https://github.com/ztommyc/web-screen-share ｜ Gitee 镜像：https://
 - **纯浏览器查看**：控制端零安装，打开 `http://<被控机IP>:8080/` 即可
 - **MJPEG 实时流**：`multipart/x-mixed-replace`，兼容性极好，断线自动重连
 - **双向文本消息**：浏览器 ↔ 被控机小窗互发，`pre-wrap` + 等宽字体，换行/缩进/Tab 原样保留
+- **文件互传**：主控机 ↔ 被控机拖拽传文件，分片上传 + 断点续传 + 双端进度/速度/ETA
 - **单文件 exe**：PyInstaller 打包，绿色运行，目标机不需要 Python
 - **两种采集后端**：`mss`(GDI) / `dxcam`(DXGI)，抓到黑屏可一键切换
-- **访问口令**：`--token`，URL 带 `?token=xxx`
+- **访问口令**：`--token`，URL 带 `?token=xxx`（也支持 `Authorization: Bearer` 头）
 - **可调参数**：帧率、JPEG 质量、缩放、指定显示器
+- **传输自动降帧**：大文件传输期间画面自动降到 4fps，把带宽让给文件（可关）
 
 ## 界面截图
 
@@ -66,12 +68,33 @@ http://<被控机IP>:8080/
 | `--monitor` | `0` | 显示器序号，`0`=全部屏幕，`1`=主屏 |
 | `--backend` | `mss` | 采集后端：`mss` / `dxcam` |
 | `--token` | 空 | 访问口令 |
+| `--recv-dir` | `~/Downloads/WebScreenShare` | 接收文件的存放目录 |
+| `--max-file-size` | `8192` | 单文件上限 MB，默认 8GB |
+| `--no-upload` | 关 | 关闭浏览器上传（只允许被控机往外发文件） |
+| `--no-autothrottle` | 关 | 传输时不自动降帧 |
+| `--throttle-fps` | `4` | 传输期间自动降到的帧率 |
 | `--no-ui` | 关 | 不弹被控端消息小窗 |
 
 ```bash
 # 典型：限带宽 + 口令
 screen-share.exe --port 8080 --fps 10 --quality 60 --scale 0.6 --token mypass
 ```
+
+## 文件互传
+
+主控机（浏览器）和被控机之间双向传文件，**不需要装任何额外东西**：
+
+- **主控机 → 被控机（存）**：点右上角「📁 文件」，把文件拖进虚线框（或点击选择，可多选）。
+  文件分片上传，存到被控机的接收目录（默认 `~/Downloads/WebScreenShare`）。
+- **被控机 → 主控机（取）**：在被控机小窗点「发送文件…」选文件，浏览器消息面板里会出现一张下载卡，点击下载。
+- **断点续传**：网络断了 / 手动暂停 / 关掉页面后重新选择**同一个文件**，会自动从已传的 offset 继续传，
+  被控机重启后也能续（`.part` 状态落盘）。下载方向走 HTTP `Range`，浏览器下载器原生支持续传。
+- **进度**：浏览器面板显示 已传/总量、实时速度（3 秒滑动窗口）、剩余时间，可暂停/继续；
+  被控机小窗顶部同步显示同一条进度。
+- **分片自适应**：4MB 起步，链路快时自动加倍到 32MB，慢时回落，重传代价最小。
+- **传输自动降帧**：默认传输期间画面降到 4fps，`--no-autothrottle` 关闭。
+
+实测参考（本机回环）：上传 ~200 MB/s，下载 ~36 MB/s（受环境回环 TCP 上限约束，实际以链路为准）。
 
 ## 双向消息
 
@@ -89,6 +112,11 @@ screen-share.exe --port 8080 --fps 10 --quality 60 --scale 0.6 --token mypass
 | GET | `/snapshot.jpg` | 单帧截图 |
 | GET | `/poll?after=<id>&wait=1` | 长轮询取新消息，`wait=1` 最长挂起 25s |
 | POST | `/send` | 发送消息，body: `{"text":"..."}` |
+| POST | `/upload/init` | 开始上传，body: `{"name","size","hash"}`，返回 `{tid, offset}` |
+| POST | `/upload/chunk?tid=&off=` | 上传分片（二进制 body），offset 不一致返回 409 + 正确 offset |
+| POST | `/upload/abort?tid=` | 取消上传并删除 `.part` |
+| GET | `/download/<sid>` | 下载被控机共享的文件，支持 `Range` 续传 |
+| GET | `/dl/list` | 当前已共享的文件列表 |
 | GET | `/health` | 健康检查 |
 
 带 `--token` 时，所有请求都要在 query 里带 `token`。
@@ -114,6 +142,8 @@ netsh advfirewall firewall add rule name="WebScreenShare" dir=in action=allow pr
 - 默认无口令，**公网暴露务必加 `--token`**，并配合防火墙限制来源 IP
 - 流量是明文 HTTP，不要在不可信网络裸奔；需要加密请套 Nginx/FRP 的 TLS 反代
 - 消息只存内存（默认保留最近 1000 条），进程退出即清空
+- 文件上传只能落到固定接收目录（文件名净化、重名自动加 `(1)`），不接受任意路径；
+  下载只开放被控机在小窗里**主动共享**过的文件；不想要上传功能就加 `--no-upload`
 
 ## 许可
 
