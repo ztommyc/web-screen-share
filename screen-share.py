@@ -63,7 +63,8 @@ if _MSS is None or Image is None:
     sys.exit("缺少依赖，请先执行:  pip install mss pillow")
 
 BOUNDARY = "FRAMEBOUNDARY"
-MAX_MSG_LEN = 20000          # 单条消息最大字符数
+MAX_MSG_LEN = 200000         # 单条消息最大字符数（粘贴大段代码/日志够用）
+RENDER_CHUNK = 4000          # 日志区每帧最多插入的字符数，避免大消息一次性卡住 UI
 LONGPOLL_SECONDS = 25        # /poll 长轮询挂起时长
 
 HTML = """<!doctype html>
@@ -587,8 +588,8 @@ def run_overlay(bus, port):
     root = tk.Tk()
     root.title("桌面共享 · 消息 (端口 %d)" % port)
     root.attributes("-topmost", True)
-    root.geometry("460x430+40+40")
-    root.minsize(400, 340)
+    root.geometry("470x490+40+40")
+    root.minsize(400, 380)
 
     MONO = ("Consolas", 10)
 
@@ -604,28 +605,76 @@ def run_overlay(bus, port):
 
     bottom = tk.Frame(root)
     bottom.pack(fill="x", padx=8, pady=(0, 8))
-    entry = tk.Entry(bottom, font=MONO)
-    entry.pack(side="left", fill="x", expand=True)
+    # 多行输入框：单行 Entry 粘贴上万字符极慢（实测 17k 要 0.6s），Text 只要毫秒级
+    entry = tk.Text(bottom, height=3, font=MONO, wrap="word",
+                    undo=True, maxundo=50)
+    # 注意 pack 顺序：按钮先占右侧，否则 expand 的输入框会把按钮挤成 1x1
+    # （send 在下方定义，这里用 lambda 延迟绑定）
+    tk.Button(bottom, text="发送", command=lambda: send()).pack(side="right", padx=(6, 0))
+    entry.pack(side="left", fill="both", expand=True)
+
+    # ---- 分块渲染队列：大消息按 RENDER_CHUNK 字符/帧写入，UI 不再卡住 ----
+    queue = []          # 待渲染任务 {"m":..., "chunks":[...], "i":0}
+    pumping = [False]
+
+    def pump():
+        if not queue:
+            pumping[0] = False
+            return
+        job = queue[0]
+        if job["i"] < len(job["chunks"]):
+            txt.configure(state="normal")
+            txt.insert("end", job["chunks"][job["i"]])
+            txt.see("end")
+            txt.configure(state="disabled")
+            job["i"] += 1
+        else:
+            txt.configure(state="normal")
+            txt.insert("end", "\n\n")
+            txt.see("end")
+            txt.configure(state="disabled")
+            m = job["m"]
+            queue.pop(0)
+            if auto_copy.get() and m["sender"] == "主控机":
+                root.clipboard_clear()
+                root.clipboard_append(m["text"])
+            # 长跑保护：日志超过 4000 行裁掉最早 1000 行，防止越用越慢
+            try:
+                if int(txt.index("end-1c").split(".")[0]) > 4000:
+                    txt.configure(state="normal")
+                    txt.delete("1.0", "1000.0")
+                    txt.configure(state="disabled")
+            except Exception:
+                pass
+        if not queue:
+            pumping[0] = False
+            return
+        root.after(8, pump)
 
     def add_line(m):
         ts = time.strftime("%H:%M:%S", time.localtime(m["ts"]))
-        txt.configure(state="normal")
-        txt.insert("end", "[%s] %s:\n%s\n\n" % (ts, m["sender"], m["text"]))
-        txt.see("end")
-        txt.configure(state="disabled")
-        if auto_copy.get() and m["sender"] == "主控机":
-            root.clipboard_clear()
-            root.clipboard_append(m["text"])
+        head = "[%s] %s:\n" % (ts, m["sender"])
+        body = m["text"]
+        pieces = [body[i:i + RENDER_CHUNK]
+                  for i in range(0, len(body), RENDER_CHUNK)] or [""]
+        # 头部和第一块一起塞，视觉上立刻出现
+        queue.append({"m": m, "chunks": [head + pieces[0]] + pieces[1:], "i": 0})
+        if not pumping[0]:
+            pumping[0] = True
+            root.after(1, pump)
 
     def send(_event=None):
-        text = entry.get()
-        if not text:
+        text = entry.get("1.0", "end-1c")
+        if not text.strip():
             return
-        entry.delete(0, "end")
+        entry.delete("1.0", "end")
         bus.push("被控机", text[:MAX_MSG_LEN])
+        return "break"
 
-    tk.Button(bottom, text="发送", command=send).pack(side="left", padx=(6, 0))
-    entry.bind("<Return>", send)
+    tk.Button(bottom, text="发送", command=send).pack(side="left", padx=(6, 0), anchor="s")
+    entry.bind("<Return>", send)                     # 回车发送
+    entry.bind("<Shift-Return>", lambda e: None)      # Shift+回车换行
+    entry.bind("<Control-Return>", send)
 
     last_id = [0]
 
